@@ -34,6 +34,18 @@ if v1.LessThan(v2) {
 }
 ```
 
+When input must conform exactly to SemVer 2.0.0, use `NewStrictSemver`.
+It rejects leading zeroes, missing or extra numeric components, and invalid
+prerelease or build metadata while leaving the existing constructors'
+compatibility behavior unchanged.
+
+```go
+v, err := version.NewStrictSemver("1.2.3-rc.1+build.5")
+if err != nil {
+    // Handle an input that is not valid SemVer 2.0.0.
+}
+```
+
 #### Version Parsing and Comparison with Prefixes
 
 The library also supports parsing versions with a custom prefix.

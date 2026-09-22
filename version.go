@@ -14,10 +14,12 @@ import (
 
 // The compiled regular expression used to test the validity of a version.
 var (
-	versionRegexp     *regexp.Regexp
-	versionRegexpOnce sync.Once
-	semverRegexp      *regexp.Regexp
-	semverRegexpOnce  sync.Once
+	versionRegexp          *regexp.Regexp
+	versionRegexpOnce      sync.Once
+	semverRegexp           *regexp.Regexp
+	semverRegexpOnce       sync.Once
+	strictSemverRegexp     *regexp.Regexp
+	strictSemverRegexpOnce sync.Once
 )
 
 func getVersionRegexp() *regexp.Regexp {
@@ -34,6 +36,13 @@ func getSemverRegexp() *regexp.Regexp {
 	return semverRegexp
 }
 
+func getStrictSemverRegexp() *regexp.Regexp {
+	strictSemverRegexpOnce.Do(func() {
+		strictSemverRegexp = regexp.MustCompile("^" + strictSemverRegexpRaw + "$")
+	})
+	return strictSemverRegexp
+}
+
 // The raw regular expression string used for testing the validity
 // of a version.
 const (
@@ -48,6 +57,13 @@ const (
 		`(\+([0-9A-Za-z\-~]+(\.[0-9A-Za-z\-~]+)*))?` +
 		`?`
 )
+
+// strictSemverRegexpRaw follows the SemVer 2.0.0 grammar. It intentionally
+// does not accept the compatibility forms supported by NewVersion and
+// NewSemver, such as a leading "v", omitted components, or extra components.
+const strictSemverRegexpRaw = `(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)` +
+	`(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?` +
+	`(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?`
 
 // Optional options for NewVersion function.
 type options struct {
@@ -109,6 +125,20 @@ func NewVersion(v string, opts ...Option) (*Version, error) {
 // Version that adheres strictly to SemVer specs
 // https://semver.org/
 func NewSemver(v string) (*Version, error) {
+	return newVersion(v, getSemverRegexp())
+}
+
+// NewStrictSemver parses v as a SemVer 2.0.0 version.
+//
+// Unlike NewVersion and NewSemver, this constructor rejects compatibility
+// forms such as a leading "v", omitted or extra numeric components, and
+// numeric identifiers with leading zeroes. The existing constructors are
+// unchanged so callers that depend on their broader acceptance set continue
+// to work.
+func NewStrictSemver(v string) (*Version, error) {
+	if !getStrictSemverRegexp().MatchString(v) {
+		return nil, fmt.Errorf("malformed version: %s", v)
+	}
 	return newVersion(v, getSemverRegexp())
 }
 
